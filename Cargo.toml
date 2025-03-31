@@ -1,0 +1,10 @@
+[package]
+name = "turing-interpreter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ctreg = "1.0.3"
+derive_more = { version = "2.0.1", features = ["display", "error"] }
+once_cell = "1.21.3"
+regex = "1.11.1"
