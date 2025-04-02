@@ -6,6 +6,7 @@ use std::{collections::{linked_list::CursorMut, BTreeMap, LinkedList}, env, fmt:
 use derive_more::{Display, Error};
 use once_cell::sync::Lazy;
 use ctreg::regex;
+use ordered_hash_map::OrderedHashSet;
 
 type State = String;
 
@@ -91,6 +92,7 @@ impl FromStr for Direction {
     }
 }
 
+#[derive(Debug)]
 struct Rule {
     i: State,
     j: Symbol,
@@ -218,35 +220,33 @@ impl FromStr for Tape {
 fn main() {
     let mut args = env::args();
     args.next(); // skip the first arg which is the current executable
-    
-    let mut rule_map: BTreeMap<RuleCondition, RuleExecution> = BTreeMap::new();
-    let mut tape: Tape;
-    let mut state: State;
 
     let source = fs::read_to_string(args.next().unwrap_or("./main.tur".into())).expect("Missing source file.");
     let rules = source.split('\n').filter(|l| !l.is_empty()).map(|l| l.parse())
         .try_collect::<Vec<Rule>>().expect("Source parse fail.");
 
-    state = rules.first().expect("Empty ruleset.").i.clone();
+    let states: OrderedHashSet<State> = rules.iter().map(|r| r.i.clone()).collect();
+    let mut state: State = states.iter().next().expect("Empty ruleset.").clone();
+    let longest_state = states.iter()
+        .reduce(|h, s| if s.len() > h.len() {s} else {h})
+        .map(|s| s.len())
+        .unwrap_or_default();
 
-    for rule in rules {
-        let split = rule.split();
-        rule_map.insert(split.0, split.1);
-    }
+    let rule_map: BTreeMap<RuleCondition, RuleExecution> = rules.into_iter().map(|r| r.split()).collect();
     
     let mut input = String::new();
     println!("Please enter the input state of the tape:");
     io::stdin().read_line(&mut input).unwrap();
     input.pop(); // newline
-    tape = input.parse().expect("Tape parse fail.");
+    let mut tape: Tape = input.parse().expect("Tape parse fail.");
 
     let mut cursor = tape.cursor_front_mut();
 
     println!("Execution:\n");
 
     loop {
-        println!("{} | {}", state, cursor);
-        println!("{} | {}^", " ".repeat(state.len()), " ".repeat(cursor.index()));
+        println!("{}{} | {}", " ".repeat(longest_state - state.len()), state, cursor);
+        println!("{} | {}^", " ".repeat(longest_state), " ".repeat(cursor.index()));
         if let Some(rule) = rule_map.get(&RuleCondition { i: state, j: *cursor.get_symbol() }) {
             cursor.set_symbol(rule.k);
             state = rule.s.clone();
